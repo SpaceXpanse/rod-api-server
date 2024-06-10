@@ -122,7 +122,7 @@ def satoshis(value):
 def amount(value):
     return round(value / math.pow(10, 8), 8)
 
-def getprice_back():
+def getprice():
     import logging
     ticker = "ROD"
     coin_name = "spacexpanse"
@@ -182,7 +182,7 @@ def getprice_back():
         "status": msg
     }
         
-def getprice():
+def getprice_back():
 
     ticker = "ROD"
     coin_name = "spacexpanse"
