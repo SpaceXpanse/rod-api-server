@@ -34,7 +34,7 @@ class General():
         print(data)
         #height = data["result"]["blocks"]
         height = data["result"]["blocks"]
-        result = utils.supply(height)
+        #result = utils.supply(height)
         result["height"] = height
 
         return result
