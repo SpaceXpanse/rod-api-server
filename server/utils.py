@@ -57,7 +57,7 @@ def significant(num, signum):
     return expo * (num // expo)
 
 def supply(height):
-    # ---------Updated for WCN----------------
+    # ---------Updated for ROD----------------
     getward_c1 = 3500000
     getward_c2 = 2499999       
     getward_c3 = 999980
@@ -124,8 +124,8 @@ def amount(value):
 
 def getprice_back():
     import logging
-    ticker = "WCN"
-    coin_name = "widecoin"
+    ticker = "ROD"
+    coin_name = "spacexpanse"
     setactive = "Active"
     price = requests.get(f"https://api.coingecko.com/api/v3/simple/price?ids="+coin_name+"&vs_currencies=usd,btc").json()
     price_v2 = requests.get(f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids="+coin_name).json()
@@ -184,8 +184,8 @@ def getprice_back():
         
 def getprice():
 
-    ticker = "WCN"
-    coin_name = "widecoin"
+    ticker = "ROD"
+    coin_name = "spacexpanse"
     setactive = "Active"
 
     price = requests.get(f"http://cmcdata.widecoin.org?val=coingecko",verify=False, timeout=10).json()
