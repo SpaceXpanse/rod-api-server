@@ -52,7 +52,7 @@ def supply(height):
     # SpaceXpanse ROD supply calculation
     # 800 ROD block reward with halving every 1,054,080 blocks
     # 75%/25% distribution (3 neoscrypt-xaya blocks and 1 SHA256d block every 4 blocks)
-    # Max supply calculation: premine + sum of all block rewards
+    # Max supply is capped at 4,615,066,365 ROD coins
     # Genesis block premine: 199,999,998 ROD coins
     
     # Add genesis block premine
@@ -74,13 +74,8 @@ def supply(height):
     # Add supply for remaining blocks in current period
     total_supply += remaining_height * block_reward
     
-    # Calculate max supply (when height approaches infinity)
-    max_supply = premine
-    block_reward = 800.0
-    # Sum all halving periods (geometric series)
-    for i in range(64):
-        max_supply += halving_interval * block_reward
-        block_reward /= 2.0
+    # Max supply is capped at 4,615,066,365 ROD coins
+    max_supply = 4615066365.0
     
     return {
         "halvings": halvings,
