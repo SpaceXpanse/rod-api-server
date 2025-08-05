@@ -3,11 +3,20 @@ from server import utils
 class Address():
     @classmethod
     def balance(cls, address: str):
-        return utils.make_request("getaddressbalance", [address])
+        # Check if the method is available, if not return error
+        data = utils.make_request("getaddressbalance", [address])
+        if data["error"] and data["error"]["code"] == -32601:
+            # Method not found, return a proper error response
+            return utils.dead_response("Address indexing not available on this node")
+        return data
 
     @classmethod
     def mempool(cls, address: str, raw=False):
+        # Check if the method is available, if not return error
         data = utils.make_request("getaddressmempool", [address])
+        if data["error"] and data["error"]["code"] == -32601:
+            # Method not found, return a proper error response
+            return utils.dead_response("Address indexing not available on this node")
 
         if data["error"] is None:
             total = len(data["result"])
@@ -31,7 +40,11 @@ class Address():
 
     @classmethod
     def unspent(cls, address: str, amount: int):
+        # Check if the method is available, if not return error
         data = utils.make_request("getaddressutxos", [address, utils.amount(amount)])
+        if data["error"] and data["error"]["code"] == -32601:
+            # Method not found, return a proper error response
+            return utils.dead_response("Address indexing not available on this node")
 
         if data["error"] is None:
             utxos = []
@@ -50,7 +63,11 @@ class Address():
 
     @classmethod
     def history(cls, address: str):
+        # Check if the method is available, if not return error
         data = utils.make_request("getaddresstxids", [address])
+        if data["error"] and data["error"]["code"] == -32601:
+            # Method not found, return a proper error response
+            return utils.dead_response("Address indexing not available on this node")
 
         if data["error"] is None:
             data["result"] = data["result"][::-1]
@@ -68,7 +85,11 @@ class Address():
         addresses = list(set(addresses))
         result = []
         for address in addresses:
+            # Check if the method is available, if not return error
             data = utils.make_request("getaddresstxids", [address])
+            if data["error"] and data["error"]["code"] == -32601:
+                # Method not found, return a proper error response
+                return utils.dead_response("Address indexing not available on this node")
             if len(data["result"]) > 0:
                 result.append(address)
 

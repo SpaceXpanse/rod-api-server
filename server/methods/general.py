@@ -13,17 +13,40 @@ class General():
             #data["result"]["reward"] = utils.reward2(data["result"]["blocks"])
             #data["result"]["supply"] = utils.supply(data["result"]["blocks"])["supply"]
             data["result"]["reward"] = utils.reward2(data["result"]["blocks"])
-            data["result"].pop("verificationprogress")
-            data["result"].pop("initialblockdownload")
-            data["result"].pop("pruned")
-            data["result"].pop("softforks")
-            data["result"].pop("bip9_softforks")
-            data["result"].pop("warnings")
-            data["result"].pop("size_on_disk")
+            # Add supply information
+            supply_info = utils.supply(data["result"]["blocks"])
+            data["result"]["supply"] = supply_info["supply"]
+            data["result"]["max_supply"] = "Infinite (practically limited by halvings)"
+            data["result"].pop("verificationprogress", None)
+            data["result"].pop("initialblockdownload", None)
+            data["result"].pop("pruned", None)
+            data["result"].pop("softforks", None)
+            # Check if key exists before trying to pop it
+            data["result"].pop("bip9_softforks", None)
+            data["result"].pop("warnings", None)
+            data["result"].pop("size_on_disk", None)
 
-            nethash = utils.make_request("getnetworkhashps", [120, data["result"]["blocks"]])
+            nethash = utils.make_request("getnetworkhashps", [config.block_confirmations, data["result"]["blocks"]])
             if nethash["error"] is None:
-                data["result"]["nethash"] = int(nethash["result"])
+                # Handle nethash result properly - it might be a dict
+                nethash_value = 0
+                try:
+                    if isinstance(nethash["result"], dict):
+                        # Take the sum of both hash rates or just one of them
+                        if "sha256d" in nethash["result"]:
+                            nethash_value += float(nethash["result"]["sha256d"])
+                        if "neoscrypt" in nethash["result"]:
+                            nethash_value += float(nethash["result"]["neoscrypt"])
+                    else:
+                        nethash_value = float(nethash["result"])
+                except (ValueError, TypeError, KeyError):
+                    nethash_value = 0
+                
+                # Convert to int if possible
+                try:
+                    data["result"]["nethash"] = int(nethash_value)
+                except (ValueError, TypeError):
+                    data["result"]["nethash"] = 0
 
         return data
 
@@ -58,7 +81,7 @@ class General():
 
         return utils.response({
             "feerate": utils.satoshis(0.0001),
-            "blocks": 6
+            "blocks": config.spend_confirmations
         })
 
     @classmethod

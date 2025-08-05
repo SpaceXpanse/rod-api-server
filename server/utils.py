@@ -28,92 +28,52 @@ def make_request(method, params=[]):
         return dead_response()
 
 def reward(height):
-    halvings = height // 2102400
+    # SpaceXpanse ROD block reward: 800 ROD with halving every 1,054,080 blocks
+    halvings = height // 1054080
     if halvings >= 64:
         return 0
-    return int(satoshis(50.00000000) // (2 ** halvings))
+    return int(satoshis(800.00000000) // (2 ** halvings))
 
 def reward2(blockHeight):
-    getrw= 0
-    if blockHeight > 1 and blockHeight <= 50000:
-        getrw = 50
-    elif blockHeight > 50001 and blockHeight <= 100000:
-        getrw = 20
-    elif blockHeight > 100001 and blockHeight <= 500000:
-        getrw = 10
-    else:
-        reward = 5
-        halvings=2102400
-        if blockHeight > halvings:
-            #while blockHeight > halvings:
-            reward = reward/2
-            getrw = reward
-        else:
-            getrw = reward
-    return format(getrw, '.2f')
+    # SpaceXpanse ROD block reward: 800 ROD with halving every 1,054,080 blocks
+    # 75%/25% distribution (3 neoscrypt-xaya blocks and 1 SHA256d block every 4 blocks)
+    # For simplicity, we'll return the average reward per block (800 ROD)
+    halvings = blockHeight // 1054080
+    if halvings >= 64:
+        return 0
+    reward = 800.0 / (2 ** halvings)
+    return format(reward, '.8f')
 
 def significant(num, signum):
     expo = 10**(int(math.log(num, 10)) - signum + 1)
     return expo * (num // expo)
 
 def supply(height):
-    # ---------Updated for ROD----------------
-    getward_c1 = 3500000
-    getward_c2 = 2499999       
-    getward_c3 = 999980
-    halvings_count = 0
+    # SpaceXpanse ROD supply calculation
+    # 800 ROD block reward with halving every 1,054,080 blocks
+    # 75%/25% distribution (3 neoscrypt-xaya blocks and 1 SHA256d block every 4 blocks)
+    # Max supply is capped at 4,615,066,365 ROD coins
     
-    if height > 100000 and height <500000:
-       calheight = height -  100001
-       getward_c4 = calheight * 10
-       sub_total_supply = getward_c1 + getward_c2 + getward_c3 + getward_c4 
-       supply1 = sub_total_supply
-    elif height > 500000 and height<=2102400:
-        calheight = height - 500001
-        getward_c5 = calheight * 5
-        getward_c4 = 3999990 
-        sub_total_supply = getward_c1 + getward_c2 + getward_c3 + getward_c4  + getward_c5
-    #print('Info message:'+ str(calheight) +" reward:"+ str(getward_c3) +"tt:"+ str(sub_total_supply))
-    elif height > 2102400:
-        getward_c4 = 3999990
-        getward_c5 = 8011990
-        h1 = 2.5
-        reward = satoshis(5.00000000)
-        halvings = 2102400
-        supply = reward
-        halvings_count = 0
-
-        if height > halvings:
-            #total = halvings * 2.5
-            height = height - halvings
-            #halvings_count += 1
-            #supply += total
-        #supply = supply + height * reward
-        supplybfhalving = getward_c1 + getward_c2 + getward_c3 + getward_c4 + getward_c5
-        #sub_total_supply = supplybfhalving + (height * reward)
-        sub_total_supply2 = (supplybfhalving + (height * h1))
-        sub_total_supply3 = supplybfhalving
-    # ---------End Updated----------------
-    """reward = satoshis(50.00000000)
-    halvings = 2102400
-    halvings_count = 0
-    supply = reward
-
-    while height > halvings:
-        total = halvings * reward
-        reward = reward / 2
-        height = height - halvings
-        halvings_count += 1
-
-        supply += total
-
-    supply = supply + height * reward"""
-    print(sub_total_supply2)
+    block_reward = 800.0
+    halving_interval = 1054080
+    total_supply = 0.0
+    remaining_height = height
+    halvings = 0
+    
+    while remaining_height >= halving_interval and halvings < 64:
+        # Add supply for this halving period
+        total_supply += halving_interval * block_reward
+        remaining_height -= halving_interval
+        block_reward /= 2.0
+        halvings += 1
+    
+    # Add supply for remaining blocks in current period
+    total_supply += remaining_height * block_reward
+    
     return {
-        "halvings": int(1),
-        "supply": satoshis(sub_total_supply3),
-        "total/max supply": satoshis(35000000)
-        #"supply": type(str(sub_total_supply) + "00000000")
+        "halvings": halvings,
+        "supply": satoshis(total_supply),
+        "total/max supply": "4,615,066,365 ROD coins"
     }
 
 def satoshis(value):
@@ -127,83 +87,110 @@ def getprice():
     ticker = "ROD"
     coin_name = "spacexpanse"
     setactive = "Active"
-    price = requests.get(f"https://api.coingecko.com/api/v3/simple/price?ids="+coin_name+"&vs_currencies=usd,btc").json()
-    price_v2 = requests.get(f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids="+coin_name).json()
-    
-    price2 = requests.get(f"https://api.coinpaprika.com/v1/ticker/"+ticker+"-"+coin_name).json()
-    price2_v2 = requests.get(f"https://api.coinpaprika.com/v1/tickers/"+ticker+"-"+coin_name).json()
+    btc = 0.0
+    usd = 0.0
+    msg = "Error"
+    try:
+        price = requests.get(f"https://api.coingecko.com/api/v3/simple/price?ids="+coin_name+"&vs_currencies=usd,btc", timeout=10, verify=False).json()
+        price_v2 = requests.get(f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids="+coin_name, timeout=10, verify=False).json()
         
-    if len(price)>0 and len(price2)>0 and price2_v2['error']!="id not found":
-        cg_lastupdate = price_v2[0]['last_updated']
-        if len(price2_v2['error'])>0:
-            cp_lastupdate = '1000-07-19 17:31:00'
-        else:
-            cp_lastupdate = price2_v2['last_updated']
+        price2 = requests.get(f"https://api.coinpaprika.com/v1/ticker/"+ticker+"-"+coin_name, timeout=10, verify=False).json()
+        price2_v2 = requests.get(f"https://api.coinpaprika.com/v1/tickers/"+ticker+"-"+coin_name, timeout=10, verify=False).json()
             
-        format_data = "%Y-%m-%d %H:%M:%S"     
-        
-        print('cp_lastupdate'+str(cp_lastupdate),flush=True)
-        
-        ddate1 = parse(cg_lastupdate)
-        ddate2 = parse(cp_lastupdate)
-        
-        cp_substr1_date = str(price_v2[0]['last_updated']).split("T")
-        cp_substr1_time = str(cp_substr1_date[1]).split(".")
-        
-        cp_comb_dt = cp_substr1_date[0] + " " + cp_substr1_time[0]
-        cp_comb_cd = datetime.strptime(cp_comb_dt, format_data)
-        
-        dt2 = (datetime.fromtimestamp(int(price2['last_updated'])) - timedelta(hours=2)).strftime('%Y-%m-%d %H:%M:%S')
-        dt2_cd = datetime. strptime(dt2, format_data)
-        
-        if cp_comb_cd > dt2_cd:
-            btc = float(price[coin_name]['btc'])
-            usd = float(price[coin_name]['usd'])
+        if len(price)>0 and len(price2)>0 and price2_v2.get('error', '')!="id not found":
+            cg_lastupdate = price_v2[0].get('last_updated', '')
+            if price2_v2.get('error'):
+                cp_lastupdate = '1000-07-19 17:31:00'
+            else:
+                cp_lastupdate = price2_v2.get('last_updated', '')
+                
+            format_data = "%Y-%m-%d %H:%M:%S"
+            
+            print('cp_lastupdate'+str(cp_lastupdate),flush=True)
+            
+            ddate1 = parse(cg_lastupdate) if cg_lastupdate else None
+            ddate2 = parse(cp_lastupdate) if cp_lastupdate else None
+            
+            cp_substr1_date = str(price_v2[0].get('last_updated', '')).split("T") if price_v2[0].get('last_updated') else ['']
+            cp_substr1_time = str(cp_substr1_date[1]).split(".") if len(cp_substr1_date) > 1 else ['']
+            
+            cp_comb_dt = cp_substr1_date[0] + " " + cp_substr1_time[0] if cp_substr1_date and cp_substr1_time else ''
+            try:
+                cp_comb_cd = datetime.strptime(cp_comb_dt, format_data) if cp_comb_dt else None
+            except:
+                cp_comb_cd = None
+            
+            try:
+                dt2 = (datetime.fromtimestamp(int(price2.get('last_updated', 0))) - timedelta(hours=2)).strftime('%Y-%m-%d %H:%M:%S')
+                dt2_cd = datetime.strptime(dt2, format_data)
+            except:
+                dt2_cd = None
+            
+            if cp_comb_cd and dt2_cd and cp_comb_cd > dt2_cd:
+                btc = float(price[coin_name]['btc'])
+                usd = float(price[coin_name]['usd'])
+                msg = setactive
+            else:
+                btc = float(price2.get("price_btc", 0))
+                usd = float(price2.get("price_usd", 0))
+                msg = setactive
+        elif len(price)>0:
+            print('condition 2')
+            btc = float(price[coin_name].get('btc', 0))
+            usd = float(price[coin_name].get('usd', 0))
+            msg = setactive
+        elif len(price2)>0:
+            print('condition 3')
+            btc = float(price2[0].get("price_btc", 0)) if isinstance(price2, list) else float(price2.get("price_btc", 0))
+            usd = float(price2[0].get("price_usd", 0)) if isinstance(price2, list) else float(price2.get("price_usd", 0))
             msg = setactive
         else:
-            btc = float(price2["price_btc"])
-            usd = float(price2["price_usd"])
-            msg = setactive
-    elif len(price)>0:
-        print('condition 2')
-        btc = float(price[coin_name]['btc'])
-        usd = float(price[coin_name]['usd'])
-        msg = setactive
-    elif len(price2)>0:
-        print('condition 3')
-        btc = float(price2["price_btc"])
-        usd = float(price2["price_usd"])
-        msg = setactive     
-    else:
-         msg = "Error market cap connection"
-    return {
-        "price_btc": ('%.8f' % btc),
-        "price_usd": ('%.8f' % usd),
-        "status": msg
-    }
+             msg = "Error market cap connection"
+        return {
+            "price_btc": ('%.8f' % btc),
+            "price_usd": ('%.8f' % usd),
+            "status": msg
+        }
+    except Exception as e:
+        print(f"Error in getprice: {str(e)}")
+        return {
+            "price_btc": "0.00000000",
+            "price_usd": "0.00000000",
+            "status": "Error"
+        }
         
 def getprice_back():
+    btc = 0.0
+    usd = 0.0
+    msg = "Error"
+    try:
+        ticker = "ROD"
+        coin_name = "spacexpanse"
+        setactive = "Active"
 
-    ticker = "ROD"
-    coin_name = "spacexpanse"
-    setactive = "Active"
-
-    price = requests.get(f"http://cmcdata.widecoin.org?val=coingecko",verify=False, timeout=10).json()
-    price2 = requests.get(f"http://cmcdata.widecoin.org?val=coinparika").json()
+        price = requests.get(f"http://cmcdata.widecoin.org?val=coingecko",verify=False, timeout=10).json()
+        price2 = requests.get(f"http://cmcdata.widecoin.org?val=coinparika").json()
     
-    if len(price)>0:
-        btc = float(price[coin_name]['btc'])
-        usd = float(price[coin_name]['usd'])
-        msg = setactive
-    elif len(price2)>0:
-        btc = float(price2["price_btc"])
-        usd = float(price2["price_usd"])
-        msg = setactive           
-    else:
-        msg = "Error market cap connection"
-    return {
-        "price_btc": ('%.8f' % btc),
-        "price_usd": ('%.8f' % usd),
-        "status": msg
-    }
+        if len(price)>0:
+            btc = float(price[coin_name].get('btc', 0))
+            usd = float(price[coin_name].get('usd', 0))
+            msg = setactive
+        elif len(price2)>0:
+            btc = float(price2.get("price_btc", 0))
+            usd = float(price2.get("price_usd", 0))
+            msg = setactive
+        else:
+            msg = "Error market cap connection"
+        return {
+            "price_btc": ('%.8f' % btc),
+            "price_usd": ('%.8f' % usd),
+            "status": msg
+        }
+    except Exception as e:
+        print(f"Error in getprice_back: {str(e)}")
+        return {
+            "price_btc": "0.00000000",
+            "price_usd": "0.00000000",
+            "status": "Error"
+        }
 

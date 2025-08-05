@@ -43,12 +43,31 @@ class Block():
                 bhash = data["result"]
                 data.pop("result")
 
-                block = utils.make_request("getblock", [bhash])
-                if block["error"] is not None:
+                block_data = utils.make_request("getblock", [bhash])
+                if block_data["error"] is not None:
                     continue
 
-                data["result"] = block["result"]
-                data["result"]["nethash"] = int(nethash["result"])
+                data["result"] = block_data["result"]
+                # Handle nethash result properly - it's a dict with sha256d and neoscrypt keys
+                nethash_value = 0
+                try:
+                    if isinstance(nethash["result"], dict):
+                        # Take the sum of both hash rates or just one of them
+                        if "sha256d" in nethash["result"]:
+                            nethash_value += float(nethash["result"]["sha256d"])
+                        if "neoscrypt" in nethash["result"]:
+                            nethash_value += float(nethash["result"]["neoscrypt"])
+                    else:
+                        nethash_value = float(nethash["result"])
+                except (ValueError, TypeError, KeyError):
+                    nethash_value = 0
+                
+                # Convert to int if possible
+                try:
+                    data["result"]["nethash"] = int(nethash_value)
+                except (ValueError, TypeError):
+                    data["result"]["nethash"] = 0
+                    
                 data["result"]["txcount"] = data["result"]["nTx"]
                 data["result"].pop("nTx")
 
