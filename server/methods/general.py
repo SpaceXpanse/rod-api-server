@@ -16,7 +16,7 @@ class General():
             # Add supply information
             supply_info = utils.supply(data["result"]["blocks"])
             data["result"]["supply"] = supply_info["supply"]
-            data["result"]["max_supply"] = "Infinite (practically limited by halvings)"
+            data["result"]["max_supply"] = supply_info["total/max supply"]
             data["result"].pop("verificationprogress", None)
             data["result"].pop("initialblockdownload", None)
             data["result"].pop("pruned", None)
@@ -63,7 +63,6 @@ class General():
         return result
     
     @classmethod
-    @cache.memoize(timeout=1)
     def getprice(cls):
         result = utils.getprice()
         return result
@@ -100,5 +99,44 @@ class General():
     @classmethod
     @cache.memoize(timeout=600)
     def price(cls):
-        link = "https://api.coingecko.com/api/v3/simple/price?ids=spacexpanse&vs_currencies=usd,btc"
-        return requests.get(link).json()
+        # Use Coinpaprika API instead of CoinGecko
+        try:
+            import urllib.request
+            import urllib.error
+            import json
+            
+            url = "https://api.coinpaprika.com/v1/tickers/rod-spacexpanse"
+            req = urllib.request.Request(url)
+            req.add_header('User-Agent', 'Mozilla/5.0')
+            
+            try:
+                response = urllib.request.urlopen(req, timeout=10)
+                data = response.read()
+                price_data = json.loads(data)
+            except urllib.error.URLError as e:
+                # Try without SSL verification
+                import ssl
+                context = ssl.create_default_context()
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
+                response = urllib.request.urlopen(req, timeout=10, context=context)
+                data = response.read()
+                price_data = json.loads(data)
+            
+            # Extract price data from Coinpaprika format
+            if price_data and not price_data.get('error'):
+                quotes = price_data.get("quotes", {})
+                usd_data = quotes.get("USD", {})
+                usd_price = usd_data.get("price", 0)
+                btc_price = 0.0  # BTC price not available in Coinpaprika response
+                
+                return {
+                    "rodchain": {
+                        "usd": usd_price,
+                        "btc": btc_price
+                    }
+                }
+            else:
+                return {"rodchain": {"usd": 0, "btc": 0}}
+        except Exception:
+            return {"rodchain": {"usd": 0, "btc": 0}}
