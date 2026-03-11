@@ -22,7 +22,28 @@ class Esplora():
 
     @classmethod
     @cache.memoize(timeout=config.cache)
-    def transaction(self, result):
+    def transaction(cls, result):
+        # Input validation
+        if not isinstance(result, dict):
+            print(f"ERROR: Esplora.transaction received non-dict result: {type(result)}")
+            return {"error": "Invalid input type", "result": None}
+
+        # Check for required keys in the result
+        required_keys = ["vin", "vout", "txid", "version", "locktime", "size"]
+        for key in required_keys:
+            if key not in result:
+                print(f"ERROR: Esplora.transaction missing required key '{key}' in result: {result}")
+                return {"error": f"Missing required key: {key}", "result": None}
+
+        # Validate vin and vout are lists
+        if not isinstance(result["vin"], list):
+            print(f"ERROR: Esplora.transaction 'vin' is not a list: {type(result['vin'])}")
+            return {}
+
+        if not isinstance(result["vout"], list):
+            print(f"ERROR: Esplora.transaction 'vout' is not a list: {type(result['vout'])}")
+            return {}
+
         outputs = []
         inputs = []
 
@@ -32,7 +53,19 @@ class Esplora():
         coinbase = True
         fee = 0
 
-        for vin in result["vin"]:
+        for i, vin in enumerate(result["vin"]):
+            # Validate each vin entry
+            if not isinstance(vin, dict):
+                print(f"ERROR: Esplora.transaction vin[{i}] is not a dict: {type(vin)}")
+                continue
+
+            # Check for required keys in vin
+            vin_required_keys = ["sequence"]
+            for key in vin_required_keys:
+                if key not in vin:
+                    print(f"ERROR: Esplora.transaction vin[{i}] missing required key '{key}': {vin}")
+                    continue
+
             input_data = {
                 "txid": "0" * 64,
                 "sequence": vin["sequence"],
@@ -45,34 +78,95 @@ class Esplora():
 
             if "coinbase" not in vin:
                 coinbase = False
-                inputs_amount += vin["value"]
+                
+                # Validate value exists in vin
+                if "value" not in vin:
+                    print(f"WARNING: Esplora.transaction vin[{i}] missing 'value', skipping input amount calculation")
+                else:
+                    inputs_amount += vin["value"]
+
+                # Validate txid and vout exist in vin
+                if "txid" not in vin or "vout" not in vin:
+                    print(f"ERROR: Esplora.transaction vin[{i}] missing 'txid' or 'vout': {vin}")
+                    continue
 
                 input_data["txid"] = vin["txid"]
                 input_data["vout"] = vin["vout"]
                 input_data["is_coinbase"] = False
+                
+                # Validate scriptPubKey exists in vin
+                if "scriptPubKey" not in vin:
+                    print(f"ERROR: Esplora.transaction vin[{i}] missing 'scriptPubKey': {vin}")
+                    continue
+
+                # Validate scriptPubKey structure
+                script_pub_key = vin["scriptPubKey"]
+                if not isinstance(script_pub_key, dict):
+                    print(f"ERROR: Esplora.transaction vin[{i}] 'scriptPubKey' is not a dict: {type(script_pub_key)}")
+                    continue
+
+                required_script_keys = ["hex", "asm", "type"]
+                for key in required_script_keys:
+                    if key not in script_pub_key:
+                        print(f"ERROR: Esplora.transaction vin[{i}] 'scriptPubKey' missing key '{key}': {script_pub_key}")
+                        continue
+
+                # Validate addresses exist in scriptPubKey
+                if "addresses" not in script_pub_key or not isinstance(script_pub_key["addresses"], list) or len(script_pub_key["addresses"]) == 0:
+                    print(f"ERROR: Esplora.transaction vin[{i}] 'scriptPubKey' missing or invalid 'addresses': {script_pub_key}")
+                    continue
+
                 input_data["prevout"] = {
-                    "scriptpubkey": vin["scriptPubKey"]["hex"],
-                    "scriptpubkey_asm": vin["scriptPubKey"]["asm"],
-                    "scriptpubkey_type": vin["scriptPubKey"]["type"],
-                    "scriptpubkey_address": vin["scriptPubKey"]["addresses"][0],
-                    "value": vin["value"]
+                    "scriptpubkey": script_pub_key["hex"],
+                    "scriptpubkey_asm": script_pub_key["asm"],
+                    "scriptpubkey_type": script_pub_key["type"],
+                    "scriptpubkey_address": script_pub_key["addresses"][0],
+                    "value": vin["value"] if "value" in vin else 0
                 }
 
             inputs.append(input_data)
 
-        for vout in result["vout"]:
-            outputs_amount += vout["value"]
+        for j, vout in enumerate(result["vout"]):
+            # Validate each vout entry
+            if not isinstance(vout, dict):
+                print(f"ERROR: Esplora.transaction vout[{j}] is not a dict: {type(vout)}")
+                continue
+
+            # Validate value exists in vout
+            if "value" not in vout:
+                print(f"WARNING: Esplora.transaction vout[{j}] missing 'value', using 0")
+                vout_value = 0
+            else:
+                vout_value = vout["value"]
+                outputs_amount += vout_value
 
             output_data = {
-                "scriptpubkey": vout["scriptPubKey"]["hex"],
-                "scriptpubkey_asm": vout["scriptPubKey"]["asm"],
-                "scriptpubkey_type": vout["scriptPubKey"]["type"],
+                "scriptpubkey": "",
+                "scriptpubkey_asm": "",
+                "scriptpubkey_type": "",
                 "value": 0
             }
 
-            if "addresses" in vout["scriptPubKey"]:
-                output_data["scriptpubkey_address"] = vout["scriptPubKey"]["addresses"][0]
-                output_data["value"] = vout["value"]
+            # Validate scriptPubKey exists in vout
+            if "scriptPubKey" not in vout:
+                print(f"ERROR: Esplora.transaction vout[{j}] missing 'scriptPubKey': {vout}")
+                continue
+
+            # Validate scriptPubKey structure
+            script_pub_key = vout["scriptPubKey"]
+            if not isinstance(script_pub_key, dict):
+                print(f"ERROR: Esplora.transaction vout[{j}] 'scriptPubKey' is not a dict: {type(script_pub_key)}")
+                continue
+
+            # Set default values and validate keys
+            output_data["scriptpubkey"] = script_pub_key.get("hex", "")
+            output_data["scriptpubkey_asm"] = script_pub_key.get("asm", "")
+            output_data["scriptpubkey_type"] = script_pub_key.get("type", "")
+
+            if "addresses" in script_pub_key and isinstance(script_pub_key["addresses"], list) and len(script_pub_key["addresses"]) > 0:
+                output_data["scriptpubkey_address"] = script_pub_key["addresses"][0]
+            
+            output_data["value"] = vout_value
 
             if output_data["scriptpubkey_type"] == "nulldata":
                 output_data["scriptpubkey_type"] = "op_return"
@@ -84,11 +178,28 @@ class Esplora():
 
         if "blockhash" in result:
             status["confirmed"] = True
-            status["block_height"] = result["height"]
+            # Validate height and blocktime exist if blockhash is present
+            if "height" not in result:
+                print(f"WARNING: Esplora.transaction result has 'blockhash' but missing 'height'")
+            else:
+                status["block_height"] = result["height"]
+                
             status["block_hash"] = result["blockhash"]
-            status["block_time"] = result["blocktime"]
+            
+            if "blocktime" not in result:
+                print(f"WARNING: Esplora.transaction result has 'blockhash' but missing 'blocktime'")
+            else:
+                status["block_time"] = result["blocktime"]
 
-        weight = result["weight"] if "weight" in result else result["vsize"]
+        # Determine weight based on available fields
+        if "weight" in result:
+            weight = result["weight"]
+        elif "vsize" in result:
+            weight = result["vsize"]
+        else:
+            # Calculate a default weight if neither is available
+            print(f"WARNING: Esplora.transaction result missing both 'weight' and 'vsize', using size as fallback")
+            weight = result["size"]
 
         return {
             "txid": result["txid"],

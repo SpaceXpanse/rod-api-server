@@ -11,11 +11,11 @@ from server import utils
 blueprint = Blueprint("rest", __name__)
 
 offset_args = {
-    "offset": fields.Int(missing=0)
+    "offset": fields.Int(load_default=0)
 }
 
 amount_args = {
-    "amount": fields.Int(missing=0)
+    "amount": fields.Int(load_default=0)
 }
 
 @stats.rest
@@ -127,6 +127,8 @@ def estimate_fee():
 @blueprint.route("/broadcast", methods=["POST"])
 def broadcast():
     raw = request.values.get("raw")
+    if not raw:
+        return jsonify({"error": "Missing 'raw' parameter", "result": None})
     return Transaction().broadcast(raw)
 
 @stats.rest

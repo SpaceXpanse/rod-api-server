@@ -9,6 +9,7 @@ config.py
 
 *.~*
 .kilocode
+test*
 
 # logs
 logs/*

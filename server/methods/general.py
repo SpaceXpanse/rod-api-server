@@ -26,7 +26,7 @@ class General():
             data["result"].pop("warnings", None)
             data["result"].pop("size_on_disk", None)
 
-            nethash = utils.make_request("getnetworkhashps", [config.block_confirmations, data["result"]["blocks"]])
+            nethash = utils.make_request("getnetworkhashps", [config.spend_confirmations, data["result"]["blocks"]])
             if nethash["error"] is None:
                 # Handle nethash result properly - it might be a dict
                 nethash_value = 0

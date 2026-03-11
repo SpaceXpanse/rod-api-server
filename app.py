@@ -1,3 +1,7 @@
+import eventlet
+
+eventlet.monkey_patch()
+
 from server import config
 from server import sio
 from server import app

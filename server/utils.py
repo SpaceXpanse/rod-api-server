@@ -18,13 +18,74 @@ def dead_response(message="Invalid Request", rid=config.rid):
 def response(result, error=None, rid=config.rid):
     return {"error": error, "id": rid, "result": result}
 
+def _safe_endpoint():
+    try:
+        parsed = urlparse(config.endpoint)
+        host = parsed.hostname or "unknown"
+        port = parsed.port
+        scheme = parsed.scheme or "http"
+        if port:
+            return f"{scheme}://{host}:{port}"
+        return f"{scheme}://{host}"
+    except Exception:
+        return "unknown"
+
 def make_request(method, params=[]):
     headers = {"content-type": "text/plain;"}
     data = json.dumps({"id": config.rid, "method": method, "params": params})
 
+    print(
+        "RPC request",
+        f"method={method}",
+        f"params={params}",
+        f"endpoint={_safe_endpoint()}",
+        f"rid={config.rid}"
+    )
+
     try:
-        return requests.post(config.endpoint, headers=headers, data=data).json()
-    except Exception:
+        response = requests.post(config.endpoint, headers=headers, data=data, timeout=10)
+        try:
+            payload = response.json()
+        except Exception as parse_error:
+            print(
+                "ERROR: RPC response is not JSON",
+                f"endpoint={_safe_endpoint()}",
+                f"status={response.status_code}",
+                f"body={response.text}",
+                f"parse_error={parse_error}"
+            )
+            return dead_response("Invalid RPC JSON response")
+
+        if response.status_code != 200:
+            if response.status_code == 401:
+                print(
+                    "ERROR: RPC auth failed",
+                    f"endpoint={_safe_endpoint()}",
+                    f"status={response.status_code}"
+                )
+            print(
+                "ERROR: RPC HTTP error",
+                f"endpoint={_safe_endpoint()}",
+                f"status={response.status_code}",
+                f"payload={payload}"
+            )
+            return dead_response("RPC HTTP error")
+
+        if payload.get("error"):
+            print(
+                "ERROR: RPC payload error",
+                f"endpoint={_safe_endpoint()}",
+                f"error={payload.get('error')}",
+                f"method={method}"
+            )
+
+        return payload
+    except Exception as error:
+        print(
+            "ERROR: RPC request failed",
+            f"endpoint={_safe_endpoint()}",
+            f"error={error}"
+        )
         return dead_response()
 
 def reward(height):
