@@ -8,3 +8,88 @@ venv/*
 config.py
 
 *.~*
+.kilocode
+
+# logs
+logs/*
+!logs/.gitkeep
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+*.cover
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.lcov
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# PyCharm
+.idea
+*.iml
+*.ipr
+*.iws
+
+# VSCode
+.vscode/
+.history/
+*.code-workspace
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+*.sublime-history
+*.sublime-session
+*.sublime-settings
+*.sublime-menu
+*.sublime-keymap
