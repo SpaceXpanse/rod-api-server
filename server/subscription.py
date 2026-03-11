@@ -15,12 +15,13 @@ def subscription_loop():
     mempool = []
     last_poll_time = time.time()
     shutdown_requested = False
+    last_poll_time = None  # Initialize as None to skip first warning
 
     while not shutdown_requested:
         loop_start_time = time.time()
         
         # Log loop execution timing for validation
-        if loop_start_time - last_poll_time < 0.1:  # Less than 100ms between loops
+        if last_poll_time is not None and loop_start_time - last_poll_time < 0.1:  # Less than 100ms between loops
             print(f"WARNING: Subscription loop executing too rapidly. Last iteration took {loop_start_time - last_poll_time:.3f}s")
         
         try:
@@ -74,7 +75,8 @@ def subscription_loop():
         last_poll_time = loop_start_time
         
         # Use configurable sleep interval instead of 0 to prevent tight loop
-        sio.sleep(getattr(config, 'subscription_poll_interval', 1.0))  # Default to 1 second if not configured
+        poll_interval = max(0.1, getattr(config, 'subscription_poll_interval', 1.0))
+        sio.sleep(poll_interval)
 
 @stats.socket
 def Connect():

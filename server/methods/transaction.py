@@ -21,12 +21,12 @@ class Transaction():
             
             # Check if the response is valid
             if not isinstance(data, dict):
-                print(f"ERROR: Invalid response from getrawtransaction for {thash}: {data}")
-                return {"error": "Invalid response from RPC", "result": None}
-                
+                logger.error(f"Invalid response type for {thash}: {type(data)}")
+                return utils.dead_response("Invalid response from RPC")
+            
             if "error" not in data:
-                print(f"WARNING: Response from getrawtransaction for {thash} missing 'error' field: {data}")
-                return {"error": "Malformed response from RPC", "result": None}
+                logger.warning(f"Response missing 'error' field for {thash}")
+                return utils.dead_response("Malformed response from RPC")
                 
             if data["error"] is not None:
                 print(f"RPC ERROR in Transaction.info for {thash}: {data['error']}")
@@ -84,9 +84,12 @@ class Transaction():
 
             data["result"]["amount"] = amount
 
-        except Exception as e:
-            print(f"EXCEPTION in Transaction.info for {thash}: {e}")
-            return {"error": f"Exception occurred: {str(e)}", "result": None}
+        except (KeyError, TypeError, ValueError) as e:
+            logger.exception(f"Data validation error in Transaction.info for {thash}")
+            return utils.dead_response(f"Transaction data error: {str(e)}")
+        except requests.RequestException as e:
+            logger.exception(f"RPC request failed for {thash}")
+            return utils.dead_response("RPC connection error")
 
         return data
 

@@ -26,7 +26,7 @@ class Esplora():
         # Input validation
         if not isinstance(result, dict):
             print(f"ERROR: Esplora.transaction received non-dict result: {type(result)}")
-            return {"error": "Invalid input type", "result": None}
+            return utils.dead_response("Invalid input type")
 
         # Check for required keys in the result
         required_keys = ["vin", "vout", "txid", "version", "locktime", "size"]
@@ -38,11 +38,11 @@ class Esplora():
         # Validate vin and vout are lists
         if not isinstance(result["vin"], list):
             print(f"ERROR: Esplora.transaction 'vin' is not a list: {type(result['vin'])}")
-            return {}
+            return utils.dead_response("Invalid vin structure")
 
         if not isinstance(result["vout"], list):
             print(f"ERROR: Esplora.transaction 'vout' is not a list: {type(result['vout'])}")
-            return {}
+            return utils.dead_response("Invalid vout structure")
 
         outputs = []
         inputs = []
