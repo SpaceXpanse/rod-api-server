@@ -43,12 +43,16 @@ class Block():
                 bhash = data["result"]
                 data.pop("result")
 
-                block = utils.make_request("getblock", [bhash])
-                if block["error"] is not None:
+                block_data = utils.make_request("getblock", [bhash])
+                if block_data["error"] is not None:
                     continue
 
-                data["result"] = block["result"]
-                data["result"]["nethash"] = int(nethash["result"])
+                data["result"] = block_data["result"]
+                network_hash_result = nethash.get("result")
+                if isinstance(network_hash_result, dict):
+                    data["result"]["nethash"] = int(sum(network_hash_result.values()))
+                else:
+                    data["result"]["nethash"] = int(network_hash_result)
                 data["result"]["txcount"] = data["result"]["nTx"]
                 data["result"].pop("nTx")
 
@@ -60,4 +64,6 @@ class Block():
     @cache.memoize(timeout=config.cache)
     def inputs(cls, bhash: str):
         data = cls.hash(bhash)
+        if data.get("error") is not None or not isinstance(data.get("result"), dict):
+            return {}
         return Transaction().addresses(data["result"]["tx"])

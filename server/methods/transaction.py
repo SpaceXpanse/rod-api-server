@@ -42,11 +42,12 @@ class Transaction():
         return data
 
     @classmethod
-    @cache.memoize(timeout=config.cache)
     def addresses(cls, tx_data):
         updates = {}
         for tx in tx_data:
             transaction = Transaction().info(tx)
+            if transaction.get("error") is not None or not isinstance(transaction.get("result"), dict):
+                continue
             vin = transaction["result"]["vin"]
             vout = transaction["result"]["vout"]
 

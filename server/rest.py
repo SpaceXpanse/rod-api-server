@@ -127,7 +127,7 @@ def estimate_fee():
 @blueprint.route("/broadcast", methods=["POST"])
 def broadcast():
     raw = request.values.get("raw")
-    return Transaction().broadcast(raw)
+    return jsonify(Transaction().broadcast(raw))
 
 @stats.rest
 @blueprint.route("/supply", methods=["GET"])

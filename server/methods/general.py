@@ -1,6 +1,5 @@
 from server import utils
 from server import cache
-import requests
 import config
 
 class General():
@@ -11,17 +10,26 @@ class General():
         if data["error"] is None:
             data["result"]["supply"] = utils.supply(data["result"]["blocks"])["supply"]
             data["result"]["reward"] = utils.reward2(data["result"]["blocks"])
-            data["result"].pop("verificationprogress")
-            data["result"].pop("initialblockdownload")
-            data["result"].pop("pruned")
-            data["result"].pop("softforks")
-            data["result"].pop("bip9_softforks")
-            data["result"].pop("warnings")
-            data["result"].pop("size_on_disk")
+            keys_to_remove = [
+                "verificationprogress",
+                "initialblockdownload",
+                "pruned",
+                "softforks",
+                "bip9_softforks",
+                "warnings",
+                "size_on_disk",
+            ]
+            for field_name in keys_to_remove:
+                if field_name in data["result"]:
+                    del data["result"][field_name]
 
             nethash = utils.make_request("getnetworkhashps", [120, data["result"]["blocks"]])
             if nethash["error"] is None:
-                data["result"]["nethash"] = int(nethash["result"])
+                network_hash_result = nethash.get("result")
+                if isinstance(network_hash_result, dict):
+                    data["result"]["nethash"] = int(sum(network_hash_result.values()))
+                else:
+                    data["result"]["nethash"] = int(network_hash_result)
 
         return data
 
@@ -29,7 +37,17 @@ class General():
     @cache.memoize(timeout=config.cache)
     def supply(cls):
         data = utils.make_request("getblockchaininfo")
-        height = data["result"]["blocks"]
+        result_data = data.get("result") if isinstance(data, dict) else None
+        if data.get("error") is not None or not isinstance(result_data, dict) or "blocks" not in result_data:
+            return {
+                "halvings": 0,
+                "supply": 0,
+                "total/max supply": utils.satoshis(utils.ROD_MAX_SUPPLY),
+                "policy": "spacexpanse-rod",
+                "inflation_model": "approximate_3_percent_annual_post_halving",
+                "height": 0,
+            }
+        height = result_data["blocks"]
         result = utils.supply(height)
         result["height"] = height
 
@@ -73,8 +91,10 @@ class General():
     @classmethod
     @cache.memoize(timeout=600)
     def price(cls):
-        link = "https://api.coingecko.com/api/v3/simple/price?ids=spacexpanse&vs_currencies=usd,btc"
-        try:
-            return requests.get(link, timeout=utils.MARKET_TIMEOUT_SECONDS).json()
-        except Exception:
-            return {"spacexpanse": {"usd": 0, "btc": 0}}
+        fallback_price = cls.getprice()
+        return {
+            "spacexpanse": {
+                "usd": float(fallback_price.get("price_usd", 0) or 0),
+                "btc": float(fallback_price.get("price_btc", 0) or 0),
+            }
+        }

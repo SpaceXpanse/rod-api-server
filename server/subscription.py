@@ -107,7 +107,7 @@ def SubscribeAddress(address):
     return True
 
 @stats.socket
-def UnubscribeAddress(address):
+def UnsubscribeAddress(address):
     if address in state.watch_addresses:
         if request.sid in state.watch_addresses[address]:
             state.watch_addresses[address].remove(request.sid)

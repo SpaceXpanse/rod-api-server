@@ -3,13 +3,7 @@ import math
 import json
 import datetime
 import requests
-from dateutil.parser import parse
 from datetime import datetime, timedelta
-from dateutil import parser
-from urllib.parse import urlparse
-from urllib.parse import parse_qs
-import decimal
-import sys
 
 RPC_TIMEOUT_SECONDS = getattr(config, "rpc_timeout", 10)
 MARKET_TIMEOUT_SECONDS = getattr(config, "market_timeout", 10)
@@ -69,10 +63,6 @@ def reward(height):
 
 def reward2(blockHeight):
     return format(amount(reward(blockHeight)), '.8f')
-
-def significant(num, signum):
-    expo = 10**(int(math.log(num, 10)) - signum + 1)
-    return expo * (num // expo)
 
 def supply(height):
     if height <= 0:
@@ -144,66 +134,6 @@ def is_plausible_rod_address(address):
 
     return normalized.startswith("R")
 
-def getprice_back():
-    import logging
-    ticker = "WCN"
-    coin_name = "widecoin"
-    setactive = "Active"
-    price = requests.get(f"https://api.coingecko.com/api/v3/simple/price?ids="+coin_name+"&vs_currencies=usd,btc").json()
-    price_v2 = requests.get(f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids="+coin_name).json()
-    
-    price2 = requests.get(f"https://api.coinpaprika.com/v1/ticker/"+ticker+"-"+coin_name).json()
-    price2_v2 = requests.get(f"https://api.coinpaprika.com/v1/tickers/"+ticker+"-"+coin_name).json()
-        
-    if len(price)>0 and len(price2)>0 and price2_v2['error']!="id not found":
-        cg_lastupdate = price_v2[0]['last_updated']
-        if len(price2_v2['error'])>0:
-            cp_lastupdate = '1000-07-19 17:31:00'
-        else:
-            cp_lastupdate = price2_v2['last_updated']
-            
-        format_data = "%Y-%m-%d %H:%M:%S"     
-        
-        print('cp_lastupdate'+str(cp_lastupdate),flush=True)
-        
-        ddate1 = parse(cg_lastupdate)
-        ddate2 = parse(cp_lastupdate)
-        
-        cp_substr1_date = str(price_v2[0]['last_updated']).split("T")
-        cp_substr1_time = str(cp_substr1_date[1]).split(".")
-        
-        cp_comb_dt = cp_substr1_date[0] + " " + cp_substr1_time[0]
-        cp_comb_cd = datetime.strptime(cp_comb_dt, format_data)
-        
-        dt2 = (datetime.fromtimestamp(int(price2['last_updated'])) - timedelta(hours=2)).strftime('%Y-%m-%d %H:%M:%S')
-        dt2_cd = datetime. strptime(dt2, format_data)
-        
-        if cp_comb_cd > dt2_cd:
-            btc = float(price[coin_name]['btc'])
-            usd = float(price[coin_name]['usd'])
-            msg = setactive
-        else:
-            btc = float(price2["price_btc"])
-            usd = float(price2["price_usd"])
-            msg = setactive
-    elif len(price)>0:
-        print('condition 2')
-        btc = float(price[coin_name]['btc'])
-        usd = float(price[coin_name]['usd'])
-        msg = setactive
-    elif len(price2)>0:
-        print('condition 3')
-        btc = float(price2["price_btc"])
-        usd = float(price2["price_usd"])
-        msg = setactive     
-    else:
-         msg = "Error market cap connection"
-    return {
-        "price_btc": ('%.8f' % btc),
-        "price_usd": ('%.8f' % usd),
-        "status": msg
-    }
-        
 def getprice():
     coin_name = "spacexpanse"
     coin_paprika_id = "rod-spacexpanse"

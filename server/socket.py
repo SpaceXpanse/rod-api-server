@@ -61,7 +61,7 @@ def init(sio):
     sio.on_event("connect", subscription.Connect)
     sio.on_event("subscribe.address", subscription.SubscribeAddress)
     sio.on_event("subscribe.blocks", subscription.SubscribeBlocks)
-    sio.on_event("unsubscribe.address", subscription.UnubscribeAddress)
+    sio.on_event("unsubscribe.address", subscription.UnsubscribeAddress)
     sio.on_event("unsubscribe.blocks", subscription.UnsubscribeBlocks)
     sio.on_event("disconnect", subscription.Disconnect)
 

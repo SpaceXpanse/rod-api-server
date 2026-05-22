@@ -69,7 +69,7 @@ class Address():
         result = []
         for address in addresses:
             data = utils.make_request("getaddresstxids", [address])
-            if len(data["result"]) > 0:
+            if data.get("error") is None and isinstance(data.get("result"), list) and len(data["result"]) > 0:
                 result.append(address)
 
         return utils.response(result)
