@@ -42,11 +42,15 @@ def Broadcast(raw=None):
     return Transaction().broadcast(raw)
 
 @stats.socket
-def CheckHistory(addresses=[]):
+def CheckHistory(addresses=None):
+    if addresses is None:
+        addresses = []
     return Address().check(addresses)
 
 @stats.socket
-def TransactionBatch(hashes=[]):
+def TransactionBatch(hashes=None):
+    if hashes is None:
+        hashes = []
     result = []
     for thash in hashes:
         result.append(Transaction().info(thash))

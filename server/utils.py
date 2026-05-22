@@ -11,6 +11,20 @@ from urllib.parse import parse_qs
 import decimal
 import sys
 
+RPC_TIMEOUT_SECONDS = getattr(config, "rpc_timeout", 10)
+MARKET_TIMEOUT_SECONDS = getattr(config, "market_timeout", 10)
+
+ROD_PRE_RELEASE_BLOCKS = 55560
+ROD_PRE_RELEASE_REWARD = 1.0
+ROD_STANDARD_REWARD = 800.0
+ROD_HALVING_INTERVAL = 1054080
+ROD_HALVING_PERIODS = 5
+ROD_ANNUAL_INFLATION = 0.03
+ROD_POST_HALVING_YEARS = 59
+ROD_SECONDS_PER_BLOCK = 30
+ROD_BLOCKS_PER_YEAR = int((365 * 24 * 60 * 60) / ROD_SECONDS_PER_BLOCK)
+ROD_MAX_SUPPLY = 4615066365
+
 
 def dead_response(message="Invalid Request", rid=config.rid):
     return {"error": {"code": 404, "message": message}, "id": rid}
@@ -18,102 +32,97 @@ def dead_response(message="Invalid Request", rid=config.rid):
 def response(result, error=None, rid=config.rid):
     return {"error": error, "id": rid, "result": result}
 
-def make_request(method, params=[]):
+def make_request(method, params=None):
+    if params is None:
+        params = []
+
     headers = {"content-type": "text/plain;"}
     data = json.dumps({"id": config.rid, "method": method, "params": params})
 
     try:
-        return requests.post(config.endpoint, headers=headers, data=data).json()
+        return requests.post(
+            config.endpoint,
+            headers=headers,
+            data=data,
+            timeout=RPC_TIMEOUT_SECONDS,
+        ).json()
     except Exception:
         return dead_response()
 
 def reward(height):
-    halvings = height // 2102400
-    if halvings >= 64:
+    if height <= 0:
         return 0
-    return int(satoshis(50.00000000) // (2 ** halvings))
+    if height <= ROD_PRE_RELEASE_BLOCKS:
+        return satoshis(ROD_PRE_RELEASE_REWARD)
+
+    effective_height = height - ROD_PRE_RELEASE_BLOCKS
+    halving_index = (effective_height - 1) // ROD_HALVING_INTERVAL
+
+    if halving_index < ROD_HALVING_PERIODS:
+        current_reward = ROD_STANDARD_REWARD / (2 ** halving_index)
+        return satoshis(current_reward)
+
+    years_after_halving = (effective_height - (ROD_HALVING_INTERVAL * ROD_HALVING_PERIODS)) / ROD_BLOCKS_PER_YEAR
+    inflation_multiplier = (1 + ROD_ANNUAL_INFLATION) ** max(0.0, years_after_halving)
+    inflationary_reward = (ROD_STANDARD_REWARD / (2 ** ROD_HALVING_PERIODS)) * inflation_multiplier
+    return satoshis(inflationary_reward)
 
 def reward2(blockHeight):
-    getrw= 0
-    if blockHeight > 1 and blockHeight <= 50000:
-        getrw = 50
-    elif blockHeight > 50001 and blockHeight <= 100000:
-        getrw = 20
-    elif blockHeight > 100001 and blockHeight <= 500000:
-        getrw = 10
-    else:
-        reward = 5
-        halvings=2102400
-        if blockHeight > halvings:
-            #while blockHeight > halvings:
-            reward = reward/2
-            getrw = reward
-        else:
-            getrw = reward
-    return format(getrw, '.2f')
+    return format(amount(reward(blockHeight)), '.8f')
 
 def significant(num, signum):
     expo = 10**(int(math.log(num, 10)) - signum + 1)
     return expo * (num // expo)
 
 def supply(height):
-    # ---------Updated for WCN----------------
-    getward_c1 = 3500000
-    getward_c2 = 2499999       
-    getward_c3 = 999980
-    halvings_count = 0
-    
-    if height > 100000 and height <500000:
-       calheight = height -  100001
-       getward_c4 = calheight * 10
-       sub_total_supply = getward_c1 + getward_c2 + getward_c3 + getward_c4 
-       supply1 = sub_total_supply
-    elif height > 500000 and height<=2102400:
-        calheight = height - 500001
-        getward_c5 = calheight * 5
-        getward_c4 = 3999990 
-        sub_total_supply = getward_c1 + getward_c2 + getward_c3 + getward_c4  + getward_c5
-    #print('Info message:'+ str(calheight) +" reward:"+ str(getward_c3) +"tt:"+ str(sub_total_supply))
-    elif height > 2102400:
-        getward_c4 = 3999990
-        getward_c5 = 8011990
-        h1 = 2.5
-        reward = satoshis(5.00000000)
-        halvings = 2102400
-        supply = reward
-        halvings_count = 0
+    if height <= 0:
+        return {
+            "halvings": 0,
+            "supply": 0,
+            "total/max supply": satoshis(ROD_MAX_SUPPLY),
+            "policy": "spacexpanse-rod",
+            "inflation_model": "approximate_3_percent_annual_post_halving",
+        }
 
-        if height > halvings:
-            #total = halvings * 2.5
-            height = height - halvings
-            #halvings_count += 1
-            #supply += total
-        #supply = supply + height * reward
-        supplybfhalving = getward_c1 + getward_c2 + getward_c3 + getward_c4 + getward_c5
-        #sub_total_supply = supplybfhalving + (height * reward)
-        sub_total_supply2 = (supplybfhalving + (height * h1))
-        sub_total_supply3 = supplybfhalving
-    # ---------End Updated----------------
-    """reward = satoshis(50.00000000)
-    halvings = 2102400
-    halvings_count = 0
-    supply = reward
+    total_supply = 0.0
+    remaining_blocks = int(height)
 
-    while height > halvings:
-        total = halvings * reward
-        reward = reward / 2
-        height = height - halvings
-        halvings_count += 1
+    pre_release_blocks = min(remaining_blocks, ROD_PRE_RELEASE_BLOCKS)
+    total_supply += pre_release_blocks * ROD_PRE_RELEASE_REWARD
+    remaining_blocks -= pre_release_blocks
 
-        supply += total
+    completed_halvings = 0
+    for halving_index in range(ROD_HALVING_PERIODS):
+        if remaining_blocks <= 0:
+            break
+        phase_blocks = min(remaining_blocks, ROD_HALVING_INTERVAL)
+        phase_reward = ROD_STANDARD_REWARD / (2 ** halving_index)
+        total_supply += phase_blocks * phase_reward
+        remaining_blocks -= phase_blocks
+        if phase_blocks == ROD_HALVING_INTERVAL:
+            completed_halvings = halving_index + 1
 
-    supply = supply + height * reward"""
-    print(sub_total_supply2)
+    if remaining_blocks > 0:
+        inflationary_base_reward = ROD_STANDARD_REWARD / (2 ** ROD_HALVING_PERIODS)
+
+        for year_index in range(ROD_POST_HALVING_YEARS):
+            if remaining_blocks <= 0:
+                break
+            blocks_this_year = min(remaining_blocks, ROD_BLOCKS_PER_YEAR)
+            inflationary_reward = inflationary_base_reward * ((1 + ROD_ANNUAL_INFLATION) ** year_index)
+            total_supply += blocks_this_year * inflationary_reward
+            remaining_blocks -= blocks_this_year
+
+        if remaining_blocks > 0:
+            final_year_reward = inflationary_base_reward * ((1 + ROD_ANNUAL_INFLATION) ** (ROD_POST_HALVING_YEARS - 1))
+            total_supply += remaining_blocks * final_year_reward
+
     return {
-        "halvings": int(1),
-        "supply": satoshis(sub_total_supply3),
-        "total/max supply": satoshis(35000000)
-        #"supply": type(str(sub_total_supply) + "00000000")
+        "halvings": int(completed_halvings),
+        "supply": satoshis(total_supply),
+        "total/max supply": satoshis(ROD_MAX_SUPPLY),
+        "policy": "spacexpanse-rod",
+        "inflation_model": "approximate_3_percent_annual_post_halving",
     }
 
 def satoshis(value):
@@ -121,6 +130,19 @@ def satoshis(value):
 
 def amount(value):
     return round(value / math.pow(10, 8), 8)
+
+def is_plausible_rod_address(address):
+    if not isinstance(address, str):
+        return False
+
+    normalized = address.strip()
+    if len(normalized) < 26 or len(normalized) > 90:
+        return False
+
+    if normalized.startswith("rod1"):
+        return True
+
+    return normalized.startswith("R")
 
 def getprice_back():
     import logging
@@ -183,24 +205,40 @@ def getprice_back():
     }
         
 def getprice():
+    coin_name = "spacexpanse"
+    coin_paprika_id = "rod-spacexpanse"
 
-    ticker = "WCN"
-    coin_name = "widecoin"
-    setactive = "Active"
+    btc = 0.0
+    usd = 0.0
+    msg = "Error market cap connection"
 
-    price = requests.get(f"http://cmcdata.widecoin.org?val=coingecko",verify=False, timeout=10).json()
-    price2 = requests.get(f"http://cmcdata.widecoin.org?val=coinparika").json()
-    
-    if len(price)>0:
-        btc = float(price[coin_name]['btc'])
-        usd = float(price[coin_name]['usd'])
-        msg = setactive
-    elif len(price2)>0:
-        btc = float(price2["price_btc"])
-        usd = float(price2["price_usd"])
-        msg = setactive           
-    else:
-        msg = "Error market cap connection"
+    try:
+        price = requests.get(
+            f"https://api.coingecko.com/api/v3/simple/price?ids={coin_name}&vs_currencies=usd,btc",
+            timeout=MARKET_TIMEOUT_SECONDS,
+        ).json()
+        if isinstance(price, dict) and coin_name in price:
+            btc = float(price[coin_name].get("btc", 0) or 0)
+            usd = float(price[coin_name].get("usd", 0) or 0)
+            msg = "Active"
+    except Exception:
+        pass
+
+    if msg != "Active":
+        try:
+            price2 = requests.get(
+                f"https://api.coinpaprika.com/v1/tickers/{coin_paprika_id}",
+                timeout=MARKET_TIMEOUT_SECONDS,
+            ).json()
+            if isinstance(price2, dict):
+                quotes = price2.get("quotes", {}).get("USD", {})
+                usd = float(quotes.get("price", 0) or 0)
+                btc = float(price2.get("price_btc", 0) or 0)
+                if usd > 0 or btc > 0:
+                    msg = "Active"
+        except Exception:
+            pass
+
     return {
         "price_btc": ('%.8f' % btc),
         "price_usd": ('%.8f' % usd),

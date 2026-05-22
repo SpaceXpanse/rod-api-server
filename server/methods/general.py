@@ -9,8 +9,6 @@ class General():
         data = utils.make_request("getblockchaininfo")
 
         if data["error"] is None:
-            #data["result"]["supply"] = utils.supply(data["result"]["blocks"])["supply"]
-            #data["result"]["reward"] = utils.reward2(data["result"]["blocks"])
             data["result"]["supply"] = utils.supply(data["result"]["blocks"])["supply"]
             data["result"]["reward"] = utils.reward2(data["result"]["blocks"])
             data["result"].pop("verificationprogress")
@@ -31,8 +29,6 @@ class General():
     @cache.memoize(timeout=config.cache)
     def supply(cls):
         data = utils.make_request("getblockchaininfo")
-        print(data)
-        #height = data["result"]["blocks"]
         height = data["result"]["blocks"]
         result = utils.supply(height)
         result["height"] = height
@@ -77,5 +73,8 @@ class General():
     @classmethod
     @cache.memoize(timeout=600)
     def price(cls):
-        link = "https://api.coingecko.com/api/v3/simple/price?ids=widecoin&vs_currencies=usd,btc"
-        return requests.get(link).json()
+        link = "https://api.coingecko.com/api/v3/simple/price?ids=spacexpanse&vs_currencies=usd,btc"
+        try:
+            return requests.get(link, timeout=utils.MARKET_TIMEOUT_SECONDS).json()
+        except Exception:
+            return {"spacexpanse": {"usd": 0, "btc": 0}}

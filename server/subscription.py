@@ -8,53 +8,58 @@ from server import sio
 import server as state
 import flask_socketio
 
+SUBSCRIPTION_POLL_INTERVAL = getattr(__import__("config"), "subscription_poll_interval", 1)
+
 def subscription_loop():
     bestblockhash = None
     mempool = []
 
     while True:
-        data = General().info()
-        if "result" in data:
-            if "bestblockhash" in data["result"]:
-                if data["result"]["bestblockhash"] != bestblockhash:
-                    bestblockhash = data["result"]["bestblockhash"]
+        try:
+            data = General().info()
+            if "result" in data:
+                if "bestblockhash" in data["result"]:
+                    if data["result"]["bestblockhash"] != bestblockhash:
+                        bestblockhash = data["result"]["bestblockhash"]
 
-                    sio.emit("block.update", utils.response({
-                        "height": data["result"]["blocks"],
-                        "hash": bestblockhash
-                    }), room="blocks")
-
-                    updates = Block().inputs(bestblockhash)
-                    for address in updates:
-                        mempool = list(set(mempool) - set(updates[address]))
-
-                        sio.emit("address.update", utils.response({
-                            "address": address,
-                            "tx": updates[address],
+                        sio.emit("block.update", utils.response({
                             "height": data["result"]["blocks"],
                             "hash": bestblockhash
-                        }), room=address)
+                        }), room="blocks")
 
-                data = General().mempool()
-                temp_mempool = []
+                        updates = Block().inputs(bestblockhash)
+                        for address in updates:
+                            mempool = list(set(mempool) - set(updates[address]))
 
-                if not data["error"]:
-                    updates = Transaction().addresses(data["result"]["tx"])
-                    for address in updates:
-                        updates[address] = list(set(updates[address]) - set(mempool))
-                        temp_mempool += updates[address]
-
-                        if len(updates[address]) > 0:
                             sio.emit("address.update", utils.response({
                                 "address": address,
                                 "tx": updates[address],
-                                "height": None,
-                                "hash": None
+                                "height": data["result"]["blocks"],
+                                "hash": bestblockhash
                             }), room=address)
 
-                mempool = list(set(mempool + temp_mempool))
+                    data = General().mempool()
+                    temp_mempool = []
 
-        sio.sleep(0)
+                    if not data["error"]:
+                        updates = Transaction().addresses(data["result"]["tx"])
+                        for address in updates:
+                            updates[address] = list(set(updates[address]) - set(mempool))
+                            temp_mempool += updates[address]
+
+                            if len(updates[address]) > 0:
+                                sio.emit("address.update", utils.response({
+                                    "address": address,
+                                    "tx": updates[address],
+                                    "height": None,
+                                    "hash": None
+                                }), room=address)
+
+                    mempool = list(set(mempool + temp_mempool))
+        except Exception:
+            pass
+
+        sio.sleep(SUBSCRIPTION_POLL_INTERVAL)
 
 @stats.socket
 def Connect():

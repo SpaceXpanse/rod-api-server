@@ -1,16 +1,16 @@
-# Getting started
+# ROD API Server
 
-This is RESTful API which will allow you to interact with Widecoin blockchain.
+Python Flask/SocketIO middleware API for the SpaceXpanse ROD blockchain.
 
-# How to use it?
+## Getting started
 
-First of all you have to create `config.py` file in root of project directory with following content:
+Create a `config.py` file in the project root:
 
-```
+```python
 rid = "api-server"
 cache = 3600  # Cache request for 1 hour
-secret = 'YOU SHOULD HAVE A VERY STRONG PASSWORD HERE'
-endpoint = "http://rpcuser:rpcpassword@127.0.0.1:8552/" # RPC
+secret = "YOU SHOULD HAVE A VERY STRONG PASSWORD HERE"
+endpoint = "http://rpcuser:rpcpassword@127.0.0.1:11999/"  # ROD RPC
 host = "0.0.0.0"
 port = 1234
 debug = False
@@ -18,24 +18,43 @@ block_page = 10
 tx_page = 25
 ```
 
-# Install dependencies
-```
-$ sudo apt-get install python3-pip
-$ sudo pip install python-dateutil
-$ pip3 install -r requirements.txt
-```
+## Install dependencies
 
-# Run
-```
-$ python3 app.py
+```bash
+pip install -r requirements.txt
 ```
 
-All request should be send to this endpoint: `http://api.widecoin.org:1123`
+## Run
 
-Responce have following fields:
+```bash
+python app.py
+```
 
-- `result`: list or object which contains requested data.
-- `error`: this field contains error message in case something went wrong.
-- `id`: api server identifier which is set in `config.py` file.
+## API response envelope
 
-P.s. keep in mind, that all amounts in this API should be in **Satoshis**.
+- `result`: list or object containing requested data
+- `error`: error message when a request fails
+- `id`: API server identifier from `config.py`
+
+All amounts are represented in **satoshis** (10^-8 ROD).
+
+## SpaceXpanse ROD network facts (reference)
+
+- Name: SpaceXpanse
+- Ticker: ROD
+- Symbol: Ɍ
+- Address letter: `R`
+- P2PKH prefix: `60`
+- P2SH prefix: `75`
+- Mainnet bech32 HRP: `rod`
+- P2P port: `11998`
+- RPC port: `11999`
+- AuxPoW chain ID: `1899`
+- PoW algorithms: `neoscrypt-xaya` and `SHA-256d` (merged mining)
+- Target block time: ~30 seconds
+- Target algorithm distribution: 75% `neoscrypt-xaya` / 25% `SHA-256d`
+- Standard block reward: `800 ROD`
+- Pre-release phase: `55,560` blocks at `1 ROD`
+- Halving interval: `1,054,080` blocks for 5 years
+- Post-halving monetary phase: ~3% inflation for 59 years
+- Name/value storage limits: names `256` bytes, values `2,048` bytes
