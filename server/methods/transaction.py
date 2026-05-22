@@ -1,7 +1,14 @@
 from server import utils
 from server import cache
+
+import logging
+import requests
 import config
-import json
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+logger.debug("Transaction.info() imports resolved")
 
 class Transaction():
     @classmethod
@@ -24,6 +31,7 @@ class Transaction():
                 logger.error(f"Invalid response type for {thash}: {type(data)}")
                 return utils.dead_response("Invalid response from RPC")
             
+            logger.debug(f"RPC response for {thash}: {data}")
             if "error" not in data:
                 logger.warning(f"Response missing 'error' field for {thash}")
                 return utils.dead_response("Malformed response from RPC")
@@ -36,6 +44,8 @@ class Transaction():
             if "result" not in data or not isinstance(data["result"], dict):
                 print(f"ERROR: Missing or invalid 'result' in Transaction.info for {thash}: {data}")
                 return {"error": "Invalid transaction data", "result": None}
+
+            logger.debug(f"Transaction.info() imports resolved for {thash}")
 
             if "blockhash" in data["result"]:
                 block_response = utils.make_request("getblock", [data["result"]["blockhash"]])

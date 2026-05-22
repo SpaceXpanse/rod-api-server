@@ -1,5 +1,9 @@
 from server import cache
+from server import utils
 import config
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Esplora():
     @classmethod

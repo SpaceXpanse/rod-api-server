@@ -30,7 +30,7 @@ $ pip3 install -r requirements.txt
 $ python3 app.py
 ```
 
-All request should be send to this endpoint: `http://api.spacexpanse.org:1123`
+All request should be send to this endpoint: `https://api.spacexpanse.org:1234`
 
 Responce have following fields:
 
