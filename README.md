@@ -16,6 +16,12 @@ port = 1234
 debug = False
 block_page = 10
 tx_page = 25
+
+# Optional ElectrumX settings for address-index endpoints
+# Defaults are used if these are omitted
+electrumx_host = "45.148.31.13"
+electrumx_port = 50001
+electrumx_timeout = 10
 ```
 
 ## Install dependencies
@@ -37,6 +43,17 @@ python app.py
 - `id`: API server identifier from `config.py`
 
 All amounts are represented in **satoshis** (10^-8 ROD).
+
+## Address-index backend behavior
+
+- Address endpoints (`/balance/<address>`, `/history/<address>`, `/mempool/<address>`, `/unspent/<address>`) are served through ElectrumX script-hash queries.
+- Non-address endpoints continue using ROD Core JSON-RPC via `endpoint`.
+- The API documentation burn/script sample address `XXXXXXXXXXXXXXXXXXXXXXXXXXXXarcLhe` is intentional.
+- Current limitation: Bech32 `rod1` addresses are not supported in address-to-scripthash conversion yet.
+
+### Startup probe note
+
+After starting the server with `python app.py`, wait at least **5-8 seconds** before probing endpoints to avoid false negatives during early startup.
 
 ## SpaceXpanse ROD network facts (reference)
 

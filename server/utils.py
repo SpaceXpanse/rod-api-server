@@ -1,12 +1,18 @@
 import config
 import math
 import json
-import datetime
 import requests
+import socket
+import hashlib
 from datetime import datetime, timedelta
 
 RPC_TIMEOUT_SECONDS = getattr(config, "rpc_timeout", 10)
 MARKET_TIMEOUT_SECONDS = getattr(config, "market_timeout", 10)
+ELECTRUMX_HOST = getattr(config, "electrumx_host", "45.148.31.13")
+ELECTRUMX_PORT = int(getattr(config, "electrumx_port", 50001))
+ELECTRUMX_TIMEOUT_SECONDS = float(getattr(config, "electrumx_timeout", 10))
+BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+BASE58_ALPHABET_MAP = {character: index for index, character in enumerate(BASE58_ALPHABET)}
 
 ROD_PRE_RELEASE_BLOCKS = 55560
 ROD_PRE_RELEASE_REWARD = 1.0
@@ -42,6 +48,101 @@ def make_request(method, params=None):
         ).json()
     except Exception:
         return dead_response()
+
+def make_electrumx_request(method, params=None):
+    if params is None:
+        params = []
+
+    payload = json.dumps({"id": config.rid, "method": method, "params": params}) + "\n"
+
+    try:
+        with socket.create_connection((ELECTRUMX_HOST, ELECTRUMX_PORT), timeout=ELECTRUMX_TIMEOUT_SECONDS) as electrumx_socket:
+            electrumx_socket.settimeout(ELECTRUMX_TIMEOUT_SECONDS)
+            return _electrumx_send_request(electrumx_socket, payload)
+    except Exception:
+        return dead_response("ElectrumX request failed")
+
+def make_electrumx_batch_request(method, params_list):
+    try:
+        with socket.create_connection((ELECTRUMX_HOST, ELECTRUMX_PORT), timeout=ELECTRUMX_TIMEOUT_SECONDS) as electrumx_socket:
+            electrumx_socket.settimeout(ELECTRUMX_TIMEOUT_SECONDS)
+            responses = []
+            for params in params_list:
+                payload = json.dumps({"id": config.rid, "method": method, "params": params}) + "\n"
+                responses.append(_electrumx_send_request(electrumx_socket, payload))
+            return responses
+    except Exception:
+        return []
+
+def _electrumx_send_request(electrumx_socket, payload):
+    electrumx_socket.sendall(payload.encode("utf-8"))
+
+    received_chunks = []
+    while True:
+        chunk = electrumx_socket.recv(4096)
+        if not chunk:
+            break
+        received_chunks.append(chunk)
+        if b"\n" in chunk:
+            break
+
+    if not received_chunks:
+        return dead_response("ElectrumX empty response")
+
+    response_line = b"".join(received_chunks).split(b"\n", 1)[0].decode("utf-8")
+    response_json = json.loads(response_line)
+    if "error" not in response_json:
+        response_json["error"] = None
+    if "id" not in response_json:
+        response_json["id"] = config.rid
+    return response_json
+
+def address_to_electrum_scripthash(address):
+    normalized = address.strip() if isinstance(address, str) else ""
+    if not normalized:
+        raise ValueError("Invalid address")
+
+    if normalized.startswith("rod1"):
+        raise ValueError("Unsupported address format: Bech32 (rod1)")
+
+    decoded = _base58check_decode(normalized)
+    version = decoded[0]
+    payload = decoded[1:]
+
+    if version == 60:
+        script_pubkey = bytes.fromhex("76a914") + payload + bytes.fromhex("88ac")
+    elif version == 75:
+        script_pubkey = bytes.fromhex("a914") + payload + bytes.fromhex("87")
+    else:
+        raise ValueError("Unsupported address prefix")
+
+    script_hash = hashlib.sha256(script_pubkey).digest()[::-1].hex()
+    return script_hash
+
+def _base58check_decode(value):
+    decoded_number = 0
+    for character in value:
+        decoded_number *= 58
+        if character not in BASE58_ALPHABET_MAP:
+            raise ValueError("Invalid base58 character")
+        decoded_number += BASE58_ALPHABET_MAP[character]
+
+    full_data = decoded_number.to_bytes((decoded_number.bit_length() + 7) // 8, byteorder="big")
+    leading_zeros = len(value) - len(value.lstrip("1"))
+    full_data = (b"\x00" * leading_zeros) + full_data
+
+    if len(full_data) < 5:
+        raise ValueError("Invalid address length")
+
+    payload, checksum = full_data[:-4], full_data[-4:]
+    expected_checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
+    if checksum != expected_checksum:
+        raise ValueError("Invalid address checksum")
+
+    if len(payload) != 21:
+        raise ValueError("Unsupported address payload length")
+
+    return payload
 
 def reward(height):
     if height <= 0:

@@ -69,7 +69,7 @@ def address_info(address):
         }
 
     else:
-        return Response("Invalid Bitcoin address", mimetype="text/plain", status=400)
+        return Response("Invalid ROD address", mimetype="text/plain", status=400)
 
 @stats.rest
 @blueprint.route("/block/<string:bhash>/status", methods=["GET"])
@@ -175,7 +175,7 @@ def address_transactions(address, thash):
         return jsonify(transactions)
 
     else:
-        return Response("Invalid Bitcoin address", mimetype="text/plain", status=400)
+        return Response("Invalid ROD address", mimetype="text/plain", status=400)
 
 @stats.rest
 @blueprint.route("/block-height/<int:height>", methods=["GET"])
